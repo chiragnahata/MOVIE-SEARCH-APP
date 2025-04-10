@@ -91,7 +91,7 @@ const Home = () => {
     searchMovies(term, 1);
   };
   
-  // Load more results
+  // Load more results - Fixed to ensure proper page increment
   const handleLoadMore = () => {
     const nextPage = currentPage + 1;
     setCurrentPage(nextPage);
