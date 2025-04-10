@@ -4,10 +4,29 @@ import { useToast } from "@/components/ui/use-toast";
 import SearchInput from "../components/SearchInput";
 import MovieCard, { MovieCardSkeleton } from "../components/MovieCard";
 import EmptyState from "../components/EmptyState";
-import omdbApi, { MovieBasic, SearchResult } from "../services/omdbApi";
-import { Link } from "react-router-dom";
+import omdbApi, { MovieBasic, SearchResult, SearchType } from "../services/omdbApi";
+import { Film, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Film } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { Badge } from "@/components/ui/badge";
+
+// Define filter form values interface
+interface FilterValues {
+  type: SearchType;
+  year: string;
+  sort: string;
+}
 
 const Home = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -17,10 +36,24 @@ const Home = () => {
   const [isInitialState, setIsInitialState] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalResults, setTotalResults] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
+
+  // Filter states
+  const [filtersOpen, setFiltersOpen] = useState(false);
   
-  // Function to search movies
+  // Setup form for filters
+  const form = useForm<FilterValues>({
+    defaultValues: {
+      type: "movie",
+      year: "",
+      sort: "default"
+    }
+  });
+  
+  // Get current filter values
+  const filterValues = form.watch();
+  
+  // Function to search movies with filters
   const searchMovies = async (term: string, page = 1) => {
     if (!term) return;
     
@@ -28,21 +61,32 @@ const Home = () => {
     setError(null);
     
     try {
-      const results: SearchResult = await omdbApi.searchMovies(term, page);
+      const results: SearchResult = await omdbApi.searchMovies(
+        term, 
+        page, 
+        filterValues.type,
+        filterValues.year ? filterValues.year : undefined
+      );
       
       if (results.Response === "True" && results.Search) {
-        if (page === 1) {
-          setMovies(results.Search);
-        } else {
-          setMovies(prev => [...prev, ...results.Search!]);
+        let filteredResults = [...results.Search];
+        
+        // Apply client-side sorting if needed
+        if (filterValues.sort === "year-asc") {
+          filteredResults.sort((a, b) => parseInt(a.Year) - parseInt(b.Year));
+        } else if (filterValues.sort === "year-desc") {
+          filteredResults.sort((a, b) => parseInt(b.Year) - parseInt(a.Year));
+        } else if (filterValues.sort === "title-asc") {
+          filteredResults.sort((a, b) => a.Title.localeCompare(b.Title));
+        } else if (filterValues.sort === "title-desc") {
+          filteredResults.sort((a, b) => b.Title.localeCompare(a.Title));
         }
         
+        setMovies(filteredResults);
         setTotalResults(parseInt(results.totalResults || "0"));
         setIsInitialState(false);
       } else {
-        if (page === 1) {
-          setMovies([]);
-        }
+        setMovies([]);
         setError(results.Error || "No results found");
         setIsInitialState(false);
       }
@@ -87,38 +131,90 @@ const Home = () => {
   // Handle search form submission
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    setCurrentPage(1);
     searchMovies(term, 1);
   };
   
-  // Load more results - Fixed to ensure proper page increment
-  const handleLoadMore = () => {
-    const nextPage = currentPage + 1;
-    setCurrentPage(nextPage);
-    searchMovies(searchTerm, nextPage);
+  // Apply filters
+  const handleApplyFilters = () => {
+    if (searchTerm) {
+      searchMovies(searchTerm, 1);
+    } else {
+      loadTrendingMovies();
+    }
+    setFiltersOpen(false);
+  };
+  
+  // Reset filters
+  const handleResetFilters = () => {
+    form.reset({
+      type: "movie",
+      year: "",
+      sort: "default"
+    });
+    
+    if (searchTerm) {
+      searchMovies(searchTerm, 1);
+    } else {
+      loadTrendingMovies();
+    }
+    setFiltersOpen(false);
   };
 
+  // Load trending movies function
+  const loadTrendingMovies = async () => {
+    try {
+      setIsLoading(true);
+      // Using a popular search term to get some initial movies
+      const results = await omdbApi.searchMovies(
+        "marvel", 
+        1, 
+        filterValues.type,
+        filterValues.year ? filterValues.year : undefined
+      );
+      
+      if (results.Response === "True" && results.Search) {
+        let filteredResults = [...results.Search];
+        
+        // Apply client-side sorting if needed
+        if (filterValues.sort === "year-asc") {
+          filteredResults.sort((a, b) => parseInt(a.Year) - parseInt(b.Year));
+        } else if (filterValues.sort === "year-desc") {
+          filteredResults.sort((a, b) => parseInt(b.Year) - parseInt(a.Year));
+        } else if (filterValues.sort === "title-asc") {
+          filteredResults.sort((a, b) => a.Title.localeCompare(b.Title));
+        } else if (filterValues.sort === "title-desc") {
+          filteredResults.sort((a, b) => b.Title.localeCompare(a.Title));
+        }
+        
+        setMovies(filteredResults);
+        setTotalResults(parseInt(results.totalResults || "0"));
+      }
+    } catch (error) {
+      console.error("Failed to load trending movies:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Load trending movies on initial render
   useEffect(() => {
-    const loadTrendingMovies = async () => {
-      try {
-        setIsLoading(true);
-        // Using a popular search term to get some initial movies
-        const results = await omdbApi.searchMovies("marvel");
-        
-        if (results.Response === "True" && results.Search) {
-          setMovies(results.Search);
-          setTotalResults(parseInt(results.totalResults || "0"));
-        }
-      } catch (error) {
-        console.error("Failed to load trending movies:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     loadTrendingMovies();
   }, []);
+  
+  // Generate years for dropdown
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 80 }, (_, i) => (currentYear - i).toString());
+  
+  // Count active filters
+  const countActiveFilters = (): number => {
+    let count = 0;
+    if (filterValues.type !== "movie") count++;
+    if (filterValues.year) count++;
+    if (filterValues.sort !== "default") count++;
+    return count;
+  };
+  
+  const activeFiltersCount = countActiveFilters();
   
   return (
     <div className="container py-8 flex-1">
@@ -132,18 +228,163 @@ const Home = () => {
           Search for your favorite movies, explore details, and save them to your personal collection.
         </p>
         
-        {/* Search input */}
-        <SearchInput 
-          onSearch={handleSearch}
-          suggestions={suggestions}
-          isLoading={isLoading}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-        />
+        {/* Search input and filters row */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-4">
+          <div className="w-full max-w-2xl">
+            <SearchInput 
+              onSearch={handleSearch}
+              suggestions={suggestions}
+              isLoading={isLoading}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+            />
+          </div>
+          
+          {/* Filters dropdown */}
+          <DropdownMenu open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="min-w-[120px] relative flex items-center gap-2"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                <span>Filters</span>
+                {activeFiltersCount > 0 && (
+                  <Badge 
+                    variant="secondary" 
+                    className="h-5 w-5 p-0 flex items-center justify-center rounded-full ml-1"
+                  >
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80" align="end">
+              <DropdownMenuLabel>Search Filters</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              <Form {...form}>
+                <div className="p-2 space-y-4">
+                  {/* Type filter */}
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Content Type</FormLabel>
+                        <FormControl>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            defaultValue={field.value}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Content Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="movie">Movies</SelectItem>
+                              <SelectItem value="series">TV Series</SelectItem>
+                              <SelectItem value="episode">Episodes</SelectItem>
+                              <SelectItem value="">All Types</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Year filter */}
+                  <FormField
+                    control={form.control}
+                    name="year"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Release Year</FormLabel>
+                        <FormControl>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Any Year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Any Year</SelectItem>
+                              {years.map(year => (
+                                <SelectItem key={year} value={year}>
+                                  {year}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Sort filter */}
+                  <FormField
+                    control={form.control}
+                    name="sort"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sort By</FormLabel>
+                        <FormControl>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Default Sorting" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="default">Default</SelectItem>
+                              <SelectItem value="year-desc">Newest First</SelectItem>
+                              <SelectItem value="year-asc">Oldest First</SelectItem>
+                              <SelectItem value="title-asc">Title (A-Z)</SelectItem>
+                              <SelectItem value="title-desc">Title (Z-A)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Action buttons */}
+                  <div className="flex justify-between pt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleResetFilters}
+                    >
+                      Reset
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      onClick={handleApplyFilters}
+                    >
+                      Apply Filters
+                    </Button>
+                  </div>
+                </div>
+              </Form>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       
       {/* Results section */}
       <div className="space-y-8">
+        {!searchTerm && (
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-foreground">Trending Movies</h2>
+            {activeFiltersCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={handleResetFilters}>
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        )}
+        
         {isLoading && movies.length === 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
             {[...Array(10)].map((_, index) => (
@@ -159,6 +400,7 @@ const Home = () => {
               onAction={() => {
                 setSearchTerm("");
                 setIsInitialState(true);
+                loadTrendingMovies();
               }}
             />
           </div>
@@ -171,19 +413,6 @@ const Home = () => {
                     <MovieCard key={movie.imdbID} movie={movie} />
                   ))}
                 </div>
-                
-                {/* Load more button */}
-                {movies.length < totalResults && (
-                  <div className="flex justify-center mt-8">
-                    <Button
-                      onClick={handleLoadMore}
-                      disabled={isLoading}
-                      className="min-w-[150px]"
-                    >
-                      {isLoading ? "Loading..." : "Load More"}
-                    </Button>
-                  </div>
-                )}
               </>
             ) : (
               <div className="flex justify-center py-12">
