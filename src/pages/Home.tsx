@@ -131,7 +131,8 @@ const Home = () => {
         ) : isInitialState ? (
           <div className="flex justify-center py-12">
             <EmptyState 
-              type="api-key"
+              type="search"
+              message="Search for your favorite movies to get started"
               actionLabel="Start Searching"
               onAction={() => setIsInitialState(false)}
             />

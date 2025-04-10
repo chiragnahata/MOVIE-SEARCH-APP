@@ -1,10 +1,11 @@
 
 import { FilmIcon, SearchX, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReactNode } from "react";
 
 interface EmptyStateProps {
   type: "search" | "favorites" | "error" | "api-key";
-  message?: string;
+  message?: string | ReactNode;
   onAction?: () => void;
   actionLabel?: string;
 }
