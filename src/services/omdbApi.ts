@@ -47,6 +47,7 @@ export interface MovieDetailed extends MovieBasic {
   Production: string;
   Website: string;
   Response: string;
+  Poster: string;
 }
 
 export interface SearchResult {
@@ -56,15 +57,35 @@ export interface SearchResult {
   Error?: string;
 }
 
+export type SearchType = 'movie' | 'series' | 'episode' | '';
+export type PlotLength = 'short' | 'full';
+
+export interface SearchOptions {
+  title?: string;
+  imdbID?: string;
+  type?: SearchType;
+  year?: string;
+  plot?: PlotLength;
+  page?: number;
+  callback?: string; // JSONP callback name
+}
+
 // API service object with methods for different endpoints
 const omdbApi = {
   /**
    * Search for movies by title
    * @param searchTerm - The movie title to search for
    * @param page - Optional page number for pagination (default: 1)
+   * @param type - Optional type filter (movie, series, episode)
+   * @param year - Optional year filter
    * @returns Promise with search results
    */
-  searchMovies: async (searchTerm: string, page = 1): Promise<SearchResult> => {
+  searchMovies: async (
+    searchTerm: string, 
+    page = 1, 
+    type: SearchType = 'movie',
+    year?: string
+  ): Promise<SearchResult> => {
     try {
       if (!API_KEY) {
         return {
@@ -80,9 +101,18 @@ const omdbApi = {
         };
       }
       
-      const response = await fetch(
-        `${BASE_URL}?apikey=${API_KEY}&s=${encodeURIComponent(searchTerm)}&page=${page}&type=movie`
-      );
+      // Build query parameters
+      const params = new URLSearchParams({
+        apikey: API_KEY,
+        s: searchTerm,
+        page: page.toString()
+      });
+      
+      // Add optional parameters if provided
+      if (type) params.append('type', type);
+      if (year) params.append('y', year);
+      
+      const response = await fetch(`${BASE_URL}?${params.toString()}`);
       
       const data = await response.json();
       return data;
@@ -98,9 +128,13 @@ const omdbApi = {
   /**
    * Get detailed information about a specific movie by ID
    * @param imdbID - The IMDB ID of the movie
+   * @param plot - Optional plot length (short or full)
    * @returns Promise with detailed movie information
    */
-  getMovieDetails: async (imdbID: string): Promise<MovieDetailed> => {
+  getMovieDetails: async (
+    imdbID: string, 
+    plot: PlotLength = 'full'
+  ): Promise<MovieDetailed> => {
     try {
       if (!API_KEY) {
         return {
@@ -132,9 +166,14 @@ const omdbApi = {
         };
       }
       
-      const response = await fetch(
-        `${BASE_URL}?apikey=${API_KEY}&i=${imdbID}&plot=full`
-      );
+      // Build query parameters
+      const params = new URLSearchParams({
+        apikey: API_KEY,
+        i: imdbID,
+        plot: plot
+      });
+      
+      const response = await fetch(`${BASE_URL}?${params.toString()}`);
       
       const data = await response.json();
       return data;
@@ -167,6 +206,102 @@ const omdbApi = {
         Production: "",
         Website: ""
       };
+    }
+  },
+
+  /**
+   * Search for movies by various criteria
+   * @param options - Search options object
+   * @returns Promise with search results or movie details
+   */
+  advancedSearch: async (options: SearchOptions): Promise<SearchResult | MovieDetailed> => {
+    try {
+      if (!API_KEY) {
+        return {
+          Response: "False",
+          Error: "No API key provided. Please add your OMDB API key."
+        };
+      }
+      
+      // Initialize parameters with API key
+      const params = new URLSearchParams({
+        apikey: API_KEY
+      });
+      
+      // Add parameters based on provided options
+      if (options.title) params.append('s', options.title);
+      if (options.imdbID) params.append('i', options.imdbID);
+      if (options.type) params.append('type', options.type);
+      if (options.year) params.append('y', options.year);
+      if (options.plot) params.append('plot', options.plot);
+      if (options.page) params.append('page', options.page.toString());
+      if (options.callback) params.append('callback', options.callback);
+      
+      const response = await fetch(`${BASE_URL}?${params.toString()}`);
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error in advanced search:", error);
+      return {
+        Response: "False",
+        Error: "Failed to perform search. Please try again later."
+      };
+    }
+  },
+
+  /**
+   * Search for a movie by title and year
+   * @param title - The movie title
+   * @param year - The movie release year
+   * @returns Promise with movie details or search results
+   */
+  searchByTitleAndYear: async (title: string, year?: string): Promise<MovieDetailed | SearchResult> => {
+    try {
+      if (!API_KEY) {
+        return {
+          Response: "False",
+          Error: "No API key provided. Please add your OMDB API key."
+        };
+      }
+      
+      // Build query parameters
+      const params = new URLSearchParams({
+        apikey: API_KEY,
+        t: title
+      });
+      
+      // Add year if provided
+      if (year) params.append('y', year);
+      
+      const response = await fetch(`${BASE_URL}?${params.toString()}`);
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error searching by title and year:", error);
+      return {
+        Response: "False",
+        Error: "Failed to fetch movie. Please try again later."
+      };
+    }
+  },
+
+  /**
+   * Check if API key is valid by making a test request
+   * @returns Promise resolving to boolean indicating if key is valid
+   */
+  validateApiKey: async (): Promise<boolean> => {
+    try {
+      if (!API_KEY) return false;
+      
+      const response = await fetch(`${BASE_URL}?apikey=${API_KEY}&s=test`);
+      const data = await response.json();
+      
+      return data.Response === "True" || (data.Response === "False" && data.Error !== "Invalid API key!");
+    } catch (error) {
+      console.error("Error validating API key:", error);
+      return false;
     }
   }
 };

@@ -65,7 +65,7 @@ const MovieCard = ({ movie, hideActions = false }: MovieCardProps) => {
           <p className="text-gray-300 text-sm">{movie.Year}</p>
           
           {!hideActions && (
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 mt-3 flex-wrap">
               <Button
                 size="sm"
                 variant="outline"
@@ -81,7 +81,7 @@ const MovieCard = ({ movie, hideActions = false }: MovieCardProps) => {
               <Button
                 size="sm"
                 variant="outline"
-                className="flex items-center gap-1 bg-black/40 border-white/20 text-white hover:bg-black/60 hover:text-white"
+                className="flex items-center gap-1 bg-black/40 border-white/20 text-white hover:bg-black/60 hover:text-white w-full sm:w-auto"
               >
                 <Info className="h-4 w-4" />
                 Details

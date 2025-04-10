@@ -97,6 +97,28 @@ const Home = () => {
     setCurrentPage(nextPage);
     searchMovies(searchTerm, nextPage);
   };
+
+  // Load trending movies on initial render
+  useEffect(() => {
+    const loadTrendingMovies = async () => {
+      try {
+        setIsLoading(true);
+        // Using a popular search term to get some initial movies
+        const results = await omdbApi.searchMovies("marvel");
+        
+        if (results.Response === "True" && results.Search) {
+          setMovies(results.Search);
+          setTotalResults(parseInt(results.totalResults || "0"));
+        }
+      } catch (error) {
+        console.error("Failed to load trending movies:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadTrendingMovies();
+  }, []);
   
   return (
     <div className="container py-8 flex-1">
@@ -122,20 +144,11 @@ const Home = () => {
       
       {/* Results section */}
       <div className="space-y-8">
-        {isLoading && isInitialState ? (
+        {isLoading && movies.length === 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
             {[...Array(10)].map((_, index) => (
               <MovieCardSkeleton key={index} />
             ))}
-          </div>
-        ) : isInitialState ? (
-          <div className="flex justify-center py-12">
-            <EmptyState 
-              type="search"
-              message="Search for your favorite movies to get started"
-              actionLabel="Start Searching"
-              onAction={() => setIsInitialState(false)}
-            />
           </div>
         ) : error ? (
           <div className="flex justify-center py-12">

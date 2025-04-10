@@ -56,13 +56,16 @@ const EmptyState = ({
   }
   
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 rounded-lg border border-border bg-card animate-fadeIn">
-      <div className="mb-4">{icon}</div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
+    <div className="flex flex-col items-center justify-center text-center p-8 rounded-lg border border-border bg-card animate-fadeIn shadow-md hover:shadow-lg transition-all duration-300">
+      <div className="mb-6 transform transition-transform duration-300 hover:scale-110">{icon}</div>
+      <h3 className="text-xl font-semibold mb-3">{title}</h3>
       <div className="text-muted-foreground max-w-md mb-6">{description}</div>
       
       {onAction && actionLabel && (
-        <Button onClick={onAction}>
+        <Button 
+          onClick={onAction}
+          className="px-6 py-2 transition-all duration-300 hover:shadow-md"
+        >
           {actionLabel}
         </Button>
       )}

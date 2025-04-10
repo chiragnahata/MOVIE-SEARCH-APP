@@ -61,9 +61,9 @@ const Navbar = () => {
             className="rounded-full"
           >
             {theme === "light" ? (
-              <Moon className="h-[1.2rem] w-[1.2rem] rotate-90 transition-all dark:rotate-0" />
+              <Moon className="h-[1.2rem] w-[1.2rem] transition-all" />
             ) : (
-              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 transition-all dark:rotate-90" />
+              <Sun className="h-[1.2rem] w-[1.2rem] transition-all" />
             )}
           </Button>
         </div>
